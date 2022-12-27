@@ -124,8 +124,7 @@ func (ar Authorizer) Wrap(inner http.Handler) http.Handler {
 				w.Header().Add("Content-Type", "text/html; charset=utf8")
 				w.WriteHeader(http.StatusInternalServerError)
 				fmt.Fprintf(w, "error reading authorizer response: %s", err)
-				log.Printf("gofast: error stream from application process %s",
-					ew.String())
+				log.Printf("error stream from application process %s", ew.String())
 				return
 			}
 			return

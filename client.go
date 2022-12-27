@@ -233,7 +233,7 @@ func (c *client) readResponse(ctx context.Context, resp *ResponsePipe, req *Requ
 	select {
 	case <-ctx.Done():
 		// do nothing, let client.Do handle
-		err = fmt.Errorf("gofast: timeout or canceled")
+		err = fmt.Errorf("timeout or canceled")
 	case <-done:
 		// do nothing and end the function
 	}
@@ -455,7 +455,7 @@ func (pipes *ResponsePipe) WriteTo(rw http.ResponseWriter, ew io.Writer) (err er
 func (pipes *ResponsePipe) writeError(w io.Writer) (err error) {
 	_, err = io.Copy(w, pipes.stdErrReader)
 	if err != nil {
-		err = fmt.Errorf("gofast: copy error: %v", err.Error())
+		err = fmt.Errorf("copy error: %v", err.Error())
 	}
 	return
 }
@@ -474,7 +474,7 @@ func (pipes *ResponsePipe) writeResponse(w http.ResponseWriter) (err error) {
 		line, isPrefix, err = linebody.ReadLine()
 		if isPrefix {
 			w.WriteHeader(http.StatusInternalServerError)
-			err = fmt.Errorf("gofast: long header line from subprocess")
+			err = fmt.Errorf("long header line from subprocess")
 			return
 		}
 		if err == io.EOF {
@@ -482,7 +482,7 @@ func (pipes *ResponsePipe) writeResponse(w http.ResponseWriter) (err error) {
 		}
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			err = fmt.Errorf("gofast: error reading headers: %v", err)
+			err = fmt.Errorf("error reading headers: %v", err)
 			return
 		}
 		if len(line) == 0 {
@@ -492,7 +492,7 @@ func (pipes *ResponsePipe) writeResponse(w http.ResponseWriter) (err error) {
 		headerLines++
 		parts := strings.SplitN(string(line), ":", 2)
 		if len(parts) < 2 {
-			err = fmt.Errorf("gofast: bogus header line: %s", string(line))
+			err = fmt.Errorf("bogus header line: %s", string(line))
 			return
 		}
 		header, val := parts[0], parts[1]
@@ -501,13 +501,13 @@ func (pipes *ResponsePipe) writeResponse(w http.ResponseWriter) (err error) {
 		switch {
 		case header == "Status":
 			if len(val) < 3 {
-				err = fmt.Errorf("gofast: bogus status (short): %q", val)
+				err = fmt.Errorf("bogus status (short): %q", val)
 				return
 			}
 			var code int
 			code, err = strconv.Atoi(val[0:3])
 			if err != nil {
-				err = fmt.Errorf("gofast: bogus status: %q\nline was %q",
+				err = fmt.Errorf("bogus status: %q\nline was %q",
 					val, line)
 				return
 			}
@@ -518,7 +518,7 @@ func (pipes *ResponsePipe) writeResponse(w http.ResponseWriter) (err error) {
 	}
 	if headerLines == 0 || !sawBlankLine {
 		w.WriteHeader(http.StatusInternalServerError)
-		err = fmt.Errorf("gofast: no headers")
+		err = fmt.Errorf("no headers")
 		return
 	}
 
@@ -536,7 +536,7 @@ func (pipes *ResponsePipe) writeResponse(w http.ResponseWriter) (err error) {
 
 	if statusCode == 0 && headers.Get("Content-Type") == "" {
 		w.WriteHeader(http.StatusInternalServerError)
-		err = fmt.Errorf("gofast: missing required Content-Type in headers")
+		err = fmt.Errorf("missing required Content-Type in headers")
 		return
 	}
 
@@ -557,7 +557,7 @@ func (pipes *ResponsePipe) writeResponse(w http.ResponseWriter) (err error) {
 
 	_, err = io.Copy(w, linebody)
 	if err != nil {
-		err = fmt.Errorf("gofast: copy error: %v", err)
+		err = fmt.Errorf("copy error: %v", err)
 	}
 	return
 }

@@ -17,7 +17,7 @@ type Handler interface {
 // fastcgi "application" through the network/address and passthrough I/O as
 // specified.
 func NewHandler(sessionHandler SessionHandler, clientFactory ClientFactory) Handler {
-	return &defaultHandler{
+	return &defaultHandler {
 		sessionHandler: sessionHandler,
 		newClient:      clientFactory,
 	}
@@ -37,45 +37,36 @@ func (h *defaultHandler) SetLogger(logger *log.Logger) {
 
 // ServeHTTP implements http.Handler
 func (h *defaultHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-
 	// TODO: separate dial logic to pool client / connection
 	c, err := h.newClient()
 	if err != nil {
-		http.Error(w, "failed to connect to FastCGI application", http.StatusBadGateway)
-		log.Printf("gofast: unable to connect to FastCGI application. %s",
-			err.Error())
+		http.Error(w, "Failed to connect to FastCGI backend", http.StatusBadGateway)
+		log.Println("# FastCGI: failed to connect to backend:", err)
 		return
 	}
-
 	// defer closing with error reporting
 	defer func() {
 		if c == nil {
 			return
 		}
-
 		// signal to close the client
 		// or the pool to return the client
 		if err = c.Close(); err != nil {
-			log.Printf("gofast: error closing client: %s",
-				err.Error())
+			log.Println("# FastCGI: error closing client:", err)
 		}
 	}()
-
 	// handle the session
 	resp, err := h.sessionHandler(c, NewRequest(r))
 	if err != nil {
-		http.Error(w, "failed to process request", http.StatusInternalServerError)
-		log.Printf("gofast: unable to process request %s",
-			err.Error())
+		http.Error(w, "Failed to process FastCGI request", http.StatusInternalServerError)
+		log.Println("# FastCGI: failed to process request:", err)
 		return
 	}
 	errBuffer := new(bytes.Buffer)
 	if err = resp.WriteTo(w, errBuffer); err != nil {
-		log.Printf("gofast: error writing error buffer to response: %s", err)
+		log.Println("# FastCGI: error writing error buffer to response:", err)
 	}
-
 	if errBuffer.Len() > 0 {
-		log.Printf("gofast: error stream from application process %s",
-			errBuffer.String())
+		log.Println("# FastCGI: backend stream error:", errBuffer.String())
 	}
 }
