@@ -6,11 +6,8 @@ import (
 	"net/http"
 )
 
-// Handler is implements http.Handler and provide logger changing method.
-type Handler interface {
-	http.Handler
-	SetLogger(logger *log.Logger)
-}
+// Handler is an alias to http.Handler
+type Handler = http.Handler
 
 // NewHandler returns the default Handler implementation. This default Handler
 // act as the "web server" component in fastcgi specification, which connects
@@ -27,12 +24,6 @@ func NewHandler(sessionHandler SessionHandler, clientFactory ClientFactory) Hand
 type defaultHandler struct {
 	sessionHandler SessionHandler
 	newClient      ClientFactory
-	logger         *log.Logger
-}
-
-// SetLogger implements Handler
-func (h *defaultHandler) SetLogger(logger *log.Logger) {
-	h.logger = logger
 }
 
 // ServeHTTP implements http.Handler
