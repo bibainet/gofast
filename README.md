@@ -41,7 +41,7 @@ socket request accordingly.
 
 [![visitor → web server → application server → web server → visitor][fastcgi-illustration]][fastcgi-illustration]
 
-[fastcgi-illustration]: docs/fastcgi-illustration.svg
+[fastcgi-illustration]: https://github.com/yookoala/gofast/blob/main/docs/fastcgi-illustration.svg
 
 **gofast** help you to write the code on the **web server** part of this
 picture. It helps you to pass the request to application server and
