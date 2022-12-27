@@ -239,7 +239,7 @@ func TestFileSystemRouter_DirectoryPath(t *testing.T) {
 		return
 	}
 
-	if want, have := "SCRIPT_FILENAME=/non-exists/folder/structure/hello/index.php", err.Error(); want != have {
+	if want, have := "SCRIPT_FILENAME=/non-exists/folder/structure/hello/index.php", err.Error(); want != have && strings.ReplaceAll(want, "/", "\\") != have {
 		t.Errorf("expected \"%s\", got \"%s\"", want, have)
 	}
 }

@@ -184,7 +184,7 @@ func TestClient_canceled(t *testing.T) {
 	}
 
 	// test error
-	if want, have := "gofast: timeout or canceled", testHandlerForCancel(t, p, w, r); want != have {
+	if want, have := "timeout or canceled", testHandlerForCancel(t, p, w, r); want != have {
 		t.Errorf("expected %#v, got %#v", want, have)
 	}
 }
