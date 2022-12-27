@@ -8,9 +8,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-
-	"golang.org/x/tools/godoc/vfs"
-	"golang.org/x/tools/godoc/vfs/httpfs"
 )
 
 // SessionHandler handles the gofast *Reqeust with the provided given Client.
@@ -371,13 +368,6 @@ func MapFilterRequest(fs http.FileSystem) Middleware {
 			return inner(client, req)
 		}
 	}
-}
-
-// NewFilterLocalFS is a shortcut to use NewFilterFS with
-// a http.FileSystem created for the given local folder.
-func NewFilterLocalFS(root string) Middleware {
-	fs := httpfs.New(vfs.OS(root))
-	return NewFilterFS(fs)
 }
 
 // NewFilterFS chains BasicParamsMap, MapHeader and MapFilterRequest
