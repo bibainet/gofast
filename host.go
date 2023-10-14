@@ -37,9 +37,6 @@ func (h *defaultHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	// defer closing with error reporting
 	defer func() {
-		if c == nil {
-			return
-		}
 		// signal to close the client
 		// or the pool to return the client
 		if err = c.Close(); err != nil {
@@ -53,11 +50,11 @@ func (h *defaultHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Println("# FastCGI: failed to process request:", err)
 		return
 	}
-	errBuffer := new(bytes.Buffer)
-	if err = resp.WriteTo(w, errBuffer); err != nil {
-		log.Println("# FastCGI: error writing error buffer to response:", err)
+	ew := new(bytes.Buffer)
+	if err = resp.WriteTo(w, ew); err != nil {
+		log.Println("# FastCGI: backend stream error:", err)
 	}
-	if errBuffer.Len() > 0 {
-		log.Println("# FastCGI: backend stream error:", errBuffer.String())
+	if ew.Len() > 0 {
+		log.Println("# FastCGI: backend stream error:", ew.String())
 	}
 }

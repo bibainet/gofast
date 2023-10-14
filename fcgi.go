@@ -210,23 +210,29 @@ func (c *conn) writeAbortRequest(reqID uint16) error {
 }
 
 func (c *conn) writePairs(recType recType, reqID uint16, pairs map[string]string) error {
-	w := newWriter(c, recType, reqID)
-	b := make([]byte, 8)
+	// keys := make([]string, 0, len(pairs))
+	// for k := range pairs {
+		// keys = append(keys, k)
+	// }
+	// sort.Strings(keys)
+	var b [8]byte
+	var n int
+	var e error
+	var w = newWriter(c, recType, reqID)
 	for k, v := range pairs {
-		n := encodeSize(b, uint32(len(k)))
+		n =  encodeSize(b[0:], uint32(len(k)))
 		n += encodeSize(b[n:], uint32(len(v)))
-		if _, err := w.Write(b[:n]); err != nil {
-			return err
+		if _, e = w.Write(b[:n]); e != nil {
+			return e
 		}
-		if _, err := w.WriteString(k); err != nil {
-			return err
+		if _, e = w.WriteString(k); e != nil {
+			return e
 		}
-		if _, err := w.WriteString(v); err != nil {
-			return err
+		if _, e = w.WriteString(v); e != nil {
+			return e
 		}
 	}
-	w.Close()
-	return nil
+	return w.Close()
 }
 
 func readSize(s []byte) (uint32, int) {
