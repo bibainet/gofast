@@ -96,41 +96,35 @@ func BasicSession(client Client, req *Request) (*ResponsePipe, error) {
 //
 func BasicParamsMap(inner SessionHandler) SessionHandler {
 	return func(client Client, req *Request) (*ResponsePipe, error) {
-
-		r := req.Raw
-
-		isHTTPS := r.TLS != nil
+		var raw = req.Raw
+		var isHTTPS = raw.TLS != nil
 		if isHTTPS {
 			req.Params["HTTPS"] = "on"
 		}
-
-		remoteAddr, remotePort, _ := net.SplitHostPort(r.RemoteAddr)
-		host, serverPort, err := net.SplitHostPort(r.Host)
+		var remoteAddr, remotePort, _ = net.SplitHostPort(raw.RemoteAddr)
+		var host, serverPort, err = net.SplitHostPort(raw.Host)
 		if err != nil {
-			host = r.Host
+			host = raw.Host
 			if isHTTPS {
 				serverPort = "443"
 			} else {
 				serverPort = "80"
 			}
 		}
-
-		// the basic information here
-		req.Params["CONTENT_TYPE"] = r.Header.Get("Content-Type")
-		req.Params["CONTENT_LENGTH"] = r.Header.Get("Content-Length")
+		req.Params["CONTENT_TYPE"] = raw.Header.Get("Content-Type")
+		req.Params["CONTENT_LENGTH"] = raw.Header.Get("Content-Length")
 		req.Params["GATEWAY_INTERFACE"] = "CGI/1.1"
 		req.Params["REMOTE_ADDR"] = remoteAddr
 		req.Params["REMOTE_PORT"] = remotePort
 		req.Params["SERVER_PORT"] = serverPort
 		req.Params["SERVER_NAME"] = host
-		req.Params["SERVER_PROTOCOL"] = r.Proto
+		req.Params["SERVER_PROTOCOL"] = raw.Proto
 		req.Params["SERVER_SOFTWARE"] = "gofast"
 		req.Params["REDIRECT_STATUS"] = "200"
-		req.Params["REQUEST_SCHEME"] = r.URL.Scheme
-		req.Params["REQUEST_METHOD"] = r.Method
-		req.Params["REQUEST_URI"] = r.RequestURI
-		req.Params["QUERY_STRING"] = r.URL.RawQuery
-
+		req.Params["REQUEST_SCHEME"] = raw.URL.Scheme
+		req.Params["REQUEST_METHOD"] = raw.Method
+		req.Params["REQUEST_URI"] = raw.RequestURI
+		req.Params["QUERY_STRING"] = raw.URL.RawQuery
 		return inner(client, req)
 	}
 }
@@ -247,39 +241,18 @@ func (fs *FileSystemRouter) Router() Middleware {
 //
 func MapHeader(inner SessionHandler) SessionHandler {
 	return func(client Client, req *Request) (*ResponsePipe, error) {
-		r := req.Raw
-
-		// Explicitly map raw host field because golang core library seems to remove
-		// the header field.
-		if r.Host != "" {
-			req.Params["HTTP_HOST"] = r.Host
+		var raw = req.Raw
+		// Explicitly map raw host field because golang core library seems to remove the header field
+		if raw.Host != "" {
+			req.Params["HTTP_HOST"] = raw.Host
 		}
-
-		// http header
-		for k, v := range r.Header {
-			formattedKey := strings.Replace(strings.ToUpper(k), "-", "_", -1)
-			if formattedKey == "CONTENT_TYPE" || formattedKey == "CONTENT_LENGTH" {
+		for k, v := range raw.Header {
+			if k == "Content-Type" || k == "Content-Length" {
 				continue
 			}
-
-			key := "HTTP_" + formattedKey
-			var value string
-			if len(v) > 0 {
-				//   refer to https://tools.ietf.org/html/rfc7230#section-3.2.2
-				//
-				//   A recipient MAY combine multiple header fields with the same field
-				//   name into one "field-name: field-value" pair, without changing the
-				//   semantics of the message, by appending each subsequent field value to
-				//   the combined field value in order, separated by a comma.  The order
-				//   in which header fields with the same field name are received is
-				//   therefore significant to the interpretation of the combined field
-				//   value; a proxy MUST NOT change the order of these field values when
-				//   forwarding a message.
-				value = strings.Join(v, ",")
-			}
-			req.Params[key] = value
+			k = "HTTP_" + strings.Replace(strings.ToUpper(k), "-", "_", -1)
+			req.Params[k] = strings.Join(v, ",")
 		}
-
 		return inner(client, req)
 	}
 }
