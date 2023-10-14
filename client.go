@@ -156,7 +156,6 @@ func (c *client) writeRequest(reqID uint16, req *Request) (err error) {
 			if count == 0 {
 				break
 			}
-
 			_, err = stdinWriter.Write(p[:count])
 			if err != nil {
 				stdinWriter.Close()
@@ -393,7 +392,6 @@ func SimpleClientFactory(connFactory ConnFactory) ClientFactory {
 		if err != nil {
 			return
 		}
-
 		// create client
 		c = &client{
 			conn: newConn(conn),
@@ -426,145 +424,114 @@ func (pipes *ResponsePipe) Close() {
 	pipes.stdErrWriter.Close()
 }
 
-// WriteTo writes the given output into http.ResponseWriter
-func (pipes *ResponsePipe) WriteTo(rw http.ResponseWriter, ew io.Writer) (err error) {
-	chErr := make(chan error, 2)
-	defer close(chErr)
-
-	var wg sync.WaitGroup
-	wg.Add(2)
-
+// WriteTo writes backend's STDOUT to http.ResponseWriter, STDERR to ew
+func (pipes *ResponsePipe) WriteTo(w http.ResponseWriter, ew io.Writer) error {
+	var ce = make(chan error, 1)
 	go func() {
-		chErr <- pipes.writeResponse(rw)
-		wg.Done()
+		ce <- pipes.writeResponse(w)
+	}()
+	go pipes.writeError(ew) // Ignore I/O errors on STDERR stream
+	var e = <-ce
+	close(ce)
+	return e
+	/*
+	var ce = make(chan error, 2)
+	go func() {
+		ce <- pipes.writeResponse(w)
 	}()
 	go func() {
-		chErr <- pipes.writeError(ew)
-		wg.Done()
+		ce <- pipes.writeError(ew)
 	}()
-
-	wg.Wait()
-	for i := 0; i < 2; i++ {
-		if err = <-chErr; err != nil {
-			return
-		}
+	var e = <-ce
+	if e == nil {
+		e = <-ce
+	} else {
+		<-ce
 	}
-	return
+	close(ce)
+	return e
+	// */
 }
 
-func (pipes *ResponsePipe) writeError(w io.Writer) (err error) {
-	_, err = io.Copy(w, pipes.stdErrReader)
-	if err != nil {
-		err = fmt.Errorf("copy error: %v", err.Error())
-	}
-	return
+// Write backend's STDERR to ew, return I/O error
+func (pipes *ResponsePipe) writeError(ew io.Writer) error {
+	var _, e = io.Copy(ew, pipes.stdErrReader)
+	return e
 }
 
-// writeTo writes the given output into http.ResponseWriter
-func (pipes *ResponsePipe) writeResponse(w http.ResponseWriter) (err error) {
-	linebody := bufio.NewReaderSize(pipes.stdOutReader, 1024)
-	headers := make(http.Header)
-	statusCode := 0
-	headerLines := 0
-	sawBlankLine := false
-
+// Write backend's STDOUT to http.ResponseWriter, parse headers, return I/O or parsing error
+func (pipes *ResponsePipe) writeResponse(w http.ResponseWriter) error {
+	var body = bufio.NewReaderSize(pipes.stdOutReader, 1024)
+	var headers = make(http.Header)
+	var header, value string
+	var statusCode, headerLines int
+	var hasBlankLine, cut bool
+	var line []byte
+	var e error
+	// Read headers
 	for {
-		var line []byte
-		var isPrefix bool
-		line, isPrefix, err = linebody.ReadLine()
-		if isPrefix {
+		line, cut, e = body.ReadLine()
+		if cut {
 			w.WriteHeader(http.StatusInternalServerError)
-			err = fmt.Errorf("long header line from subprocess")
-			return
+			return fmt.Errorf("long header line from subprocess")
 		}
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
+		if e != nil {
+			if e == io.EOF {
+				break
+			}
 			w.WriteHeader(http.StatusInternalServerError)
-			err = fmt.Errorf("error reading headers: %v", err)
-			return
+			return fmt.Errorf("error reading headers: %v", e)
 		}
 		if len(line) == 0 {
-			sawBlankLine = true
+			hasBlankLine = true
 			break
 		}
 		headerLines++
-		parts := strings.SplitN(string(line), ":", 2)
-		if len(parts) < 2 {
-			err = fmt.Errorf("bogus header line: %s", string(line))
-			return
+		header, value, cut = strings.Cut(string(line), ":")
+		header, value = strings.TrimSpace(header), strings.TrimSpace(value)
+		if !cut || header == "" {
+			return fmt.Errorf("invalid header line: %s", line)
 		}
-		header, val := parts[0], parts[1]
-		header = strings.TrimSpace(header)
-		val = strings.TrimSpace(val)
-		switch {
-		case header == "Status":
-			if len(val) < 3 {
-				err = fmt.Errorf("bogus status (short): %q", val)
-				return
+		switch header {
+		case "Status":
+			statusCode = 0
+			if len(value) >= 3 {
+				statusCode, _ = strconv.Atoi(value[:3])
 			}
-			var code int
-			code, err = strconv.Atoi(val[0:3])
-			if err != nil {
-				err = fmt.Errorf("bogus status: %q\nline was %q",
-					val, line)
-				return
+			if statusCode == 0 {
+				return fmt.Errorf("invalid status: %q", value)
 			}
-			statusCode = code
 		default:
-			headers.Add(header, val)
+			headers.Add(header, value)
 		}
 	}
-	if headerLines == 0 || !sawBlankLine {
+	// Check header reading results
+	if headerLines == 0 || !hasBlankLine {
 		w.WriteHeader(http.StatusInternalServerError)
-		err = fmt.Errorf("no headers")
-		return
+		return fmt.Errorf("no headers")
 	}
-
-	if loc := headers.Get("Location"); loc != "" {
-		/*
-			if strings.HasPrefix(loc, "/") && h.PathLocationHandler != nil {
-				h.handleInternalRedirect(rw, req, loc)
-				return
-			}
-		*/
-		if statusCode == 0 {
-			statusCode = http.StatusFound
-		}
-	}
-
-	if statusCode == 0 && headers.Get("Content-Type") == "" {
-		w.WriteHeader(http.StatusInternalServerError)
-		err = fmt.Errorf("missing required Content-Type in headers")
-		return
-	}
-
 	if statusCode == 0 {
-		statusCode = http.StatusOK
+		if headers.Get("Location") != "" {
+			statusCode = http.StatusFound
+		} else {
+			statusCode = http.StatusOK
+		}
 	}
-
 	// Copy headers to rw's headers, after we've decided not to
 	// go into handleInternalRedirect, which won't want its rw
 	// headers to have been touched.
+	var whdr = w.Header()
 	for k, vv := range headers {
-		for _, v := range vv {
-			w.Header().Add(k, v)
-		}
+		whdr[k] = vv
 	}
-
 	w.WriteHeader(statusCode)
-
-	_, err = io.Copy(w, linebody)
-	if err != nil {
-		err = fmt.Errorf("copy error: %v", err)
-	}
-	return
+	// Send remaining body
+	_, e = io.Copy(w, body) // It calls w.ReadFrom(body) which uses a buffers pool
+	return e
 }
 
-// ClientFunc is a function wrapper of a Client interface
-// shortcut implementation. Mainly for testing and development
-// purpose.
+// ClientFunc is a function wrapper of a Client interface shortcut implementation.
+// Mainly for testing and development purpose.
 type ClientFunc func(req *Request) (resp *ResponsePipe, err error)
 
 // Do implements Client.Do
