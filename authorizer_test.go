@@ -1,7 +1,7 @@
 package gofast_test
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -29,7 +29,7 @@ func TestNewAuthRequest(t *testing.T) {
 	}
 
 	// the original body is read and became "empty"
-	body, err := ioutil.ReadAll(raw.Body)
+	body, err := io.ReadAll(raw.Body)
 	if err != nil {
 		t.Errorf("unexpected error: %s", err)
 		return
@@ -39,7 +39,7 @@ func TestNewAuthRequest(t *testing.T) {
 	}
 
 	// examine the r.Body reader
-	body, err = ioutil.ReadAll(r.Body)
+	body, err = io.ReadAll(r.Body)
 	if err != nil {
 		t.Errorf("unexpected error: %s", err)
 		return
@@ -49,7 +49,7 @@ func TestNewAuthRequest(t *testing.T) {
 	}
 
 	// examine the req.Stdin reader
-	stdin, err := ioutil.ReadAll(req.Stdin)
+	stdin, err := io.ReadAll(req.Stdin)
 	if err != nil {
 		t.Errorf("unexpected error: %s", err)
 		return

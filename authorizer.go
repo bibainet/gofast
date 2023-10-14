@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -26,12 +25,12 @@ func NewAuthRequest(orgl *http.Request) (r *http.Request, req *Request, err erro
 	// if there is any body
 	if orgl.Body != nil {
 		var content []byte
-		content, err = ioutil.ReadAll(orgl.Body)
+		content, err = io.ReadAll(orgl.Body)
 		if err != nil {
 			return
 		}
-		r.Body = ioutil.NopCloser(bytes.NewBuffer(content))
-		stdin = ioutil.NopCloser(bytes.NewBuffer(content))
+		r.Body = io.NopCloser(bytes.NewBuffer(content))
+		stdin = io.NopCloser(bytes.NewBuffer(content))
 	}
 
 	// generate the request

@@ -2,7 +2,7 @@ package gofast_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"strconv"
@@ -141,7 +141,7 @@ func TestMapFilterRequest(t *testing.T) {
 
 		if req.Data == nil {
 			t.Error("filter request requires a data stream")
-		} else if content, err := ioutil.ReadAll(req.Data); err != nil {
+		} else if content, err := io.ReadAll(req.Data); err != nil {
 			t.Errorf("unexpected error: %s", err)
 		} else if want, have := "hello world", fmt.Sprintf("%s", content); want != have {
 			t.Errorf("expected: %#v, got: %#v", want, have)
